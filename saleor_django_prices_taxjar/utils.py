@@ -36,18 +36,23 @@ def get_taxes_for_cart_full(cart, shipping_cost, discounts, default_taxes):
     region_code = cart.shipping_address.country_area
     city = cart.shipping_address.city
     street = cart.shipping_address.street_address_1
-    line_items = map(lambda line: LineItem(
-        line.variant.id,
-        line.quantity,
-        line.variant.base_price,
-        (line.variant.product.tax_rate
-            if line.variant.product.tax_rate != DEFAULT_TAX_RATE_NAME
-         else DEFAULT_TAXJAR_PRODUCT_TAX_CODE),
-        (line.variant.base_price - line.variant.get_price(
-            discounts, []).gross)), cart)
+    kwargs = {}
+    if len(list(cart)):
+        kwargs['line_items'] = map(lambda line: LineItem(
+            line.variant.id,
+            line.quantity,
+            line.variant.base_price,
+            (line.variant.product.tax_rate
+                if line.variant.product.tax_rate != DEFAULT_TAX_RATE_NAME
+             else DEFAULT_TAXJAR_PRODUCT_TAX_CODE),
+            (line.variant.base_price - line.variant.get_price(
+                discounts, []).gross)), cart)
+    else:
+        kwargs['amount'] = ZERO_MONEY
+
     tax = get_taxes_for_order(
         shipping_cost.gross, country, postal_code, region_code, city, street,
-        line_items=line_items)
+        **kwargs)
     return tax
 
 

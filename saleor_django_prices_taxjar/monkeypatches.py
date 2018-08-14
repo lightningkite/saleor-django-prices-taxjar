@@ -51,7 +51,7 @@ def get_total(cart, discounts=None, taxes=None):
     This is overridden so that we don't use default taxes and use taxes for
     the order as a whole.
     """
-    if cart.shipping_address:
+    if cart.shipping_address and len(cart):
         tax = get_taxes_for_cart_full(
             cart, cart.get_shipping_price(None), discounts, None)
         return tax(cart.get_subtotal(discounts, None) +
