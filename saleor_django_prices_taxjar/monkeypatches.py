@@ -44,6 +44,13 @@ def get_taxes_for_address(address):
 taxes.get_taxes_for_address = get_taxes_for_address
 
 
+def get_taxes_for_country(country):
+    return get_taxes_for_country_region(country, None)
+
+
+taxes.get_taxes_for_country = get_taxes_for_country
+
+
 def get_total(cart, discounts=None, taxes=None):
     """
     Return the total cost of the cart.
