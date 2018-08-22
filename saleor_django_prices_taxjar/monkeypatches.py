@@ -12,12 +12,6 @@ from saleor.dashboard.product import forms as dashboard_product_forms
 from saleor.core.utils import taxes
 from saleor.order import utils as order_utils
 
-from tests import test_cart
-from tests import test_order
-from tests.dashboard import test_order as dashboard_test_order
-from tests.dashboard import test_product as dashboard_test_product
-from tests.dashboard import test_taxes as dashboard_test_taxes
-
 from .utils import (get_taxes_for_country_region, get_taxes_for_cart_full,
                     get_tax_rate_types)
 
