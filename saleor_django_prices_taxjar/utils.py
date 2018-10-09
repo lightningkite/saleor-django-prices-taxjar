@@ -37,18 +37,28 @@ def get_taxes_for_cart_full(cart, shipping_cost, discounts, default_taxes):
     city = cart.shipping_address.city
     street = cart.shipping_address.street_address_1
     kwargs = {}
-    if len(list(cart)):
-        kwargs['line_items'] = map(lambda line: LineItem(
-            line.variant.id,
-            line.quantity,
-            line.variant.base_price,
-            (line.variant.product.tax_rate
-                if line.variant.product.tax_rate != DEFAULT_TAX_RATE_NAME
-             else DEFAULT_TAXJAR_PRODUCT_TAX_CODE),
-            (line.variant.base_price - line.variant.get_price(
-                discounts, []).gross)), cart)
+    if getattr(settings, 'DJANGO_PRICES_TAXJAR_USE_LINE_ITEMS', True):
+        if len(list(cart)):
+            kwargs['line_items'] = map(lambda line: LineItem(
+                line.variant.id,
+                line.quantity,
+                line.variant.base_price,
+                (line.variant.product.tax_rate
+                    if line.variant.product.tax_rate != DEFAULT_TAX_RATE_NAME
+                 else DEFAULT_TAXJAR_PRODUCT_TAX_CODE),
+                (line.variant.base_price - line.variant.get_price(
+                    discounts, []).gross)), cart)
+        else:
+            kwargs['amount'] = ZERO_MONEY
     else:
-        kwargs['amount'] = ZERO_MONEY
+        try:
+            kwargs['amount'] = cart.get_subtotal(
+                discounts, None).gross - cart.discount_amount
+
+        # This can potentially throw a TypeError because the function
+        # signature is different.
+        except TypeError:
+            kwargs['amount'] = cart.get_subtotal().gross - cart.discount_amount
 
     tax = get_taxes_for_order(
         shipping_cost.gross, country, postal_code, region_code, city, street,
