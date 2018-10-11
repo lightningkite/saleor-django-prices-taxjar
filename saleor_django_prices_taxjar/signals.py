@@ -16,14 +16,14 @@ def create_taxjar_order_transaction(order):
     taxjar_order = client.create_order({
         'transaction_id': str(order.id),
         'transaction_date': order.created.isoformat(),
-        'to_country': address.country,
+        'to_country': address.country.code,
         'to_zip': address.postal_code,
         'to_state': address.country_area,
         'to_city': address.city,  # optional
         'to_street': address.street_address_1,  # optional
         'amount': order.total_net.amount,  # with shipping but without tax
         'shipping': order.shipping_price_net.amount,  # without tax
-        'sales_tax': order.total.tax.net,  # total tax for order
+        'sales_tax': order.total.tax.amount,  # total tax for order
     })
 
 
@@ -32,7 +32,7 @@ def update_taxjar_order_transaction(order):
         'transaction_id': str(order.id),
         'amount': order.total_net.amount,  # with shipping but without tax
         'shipping': order.shipping_price_net.amount,  # without tax
-        'sales_tax': order.total.tax.net,  # total tax for order
+        'sales_tax': order.total.tax.amount,  # total tax for order
     })
 
 
