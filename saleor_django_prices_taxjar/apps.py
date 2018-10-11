@@ -7,3 +7,4 @@ class SaleorDjangoPricesTaxjarConfig(AppConfig):
     def ready(self):
         # from . import monkeypatch_tests
         from . import monkeypatches
+        from . import signals
