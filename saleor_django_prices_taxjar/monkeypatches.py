@@ -104,6 +104,10 @@ def recalculate_order(order, **kwargs):
     if order.discount_amount:
         total -= order.discount_amount
 
+    if order.shipping_method:
+        order.shipping_price = order.shipping_method.get_total_price(
+            number_of_items=sum([line.quantity for line in lines]))
+
     if order.shipping_address:
         tax = get_taxes_for_cart_full(order, order.shipping_price, [], [])
         order.total = tax(total)
@@ -132,7 +136,8 @@ def update_order_prices(order, discounts):
             line.save()
 
     if order.shipping_method:
-        order.shipping_price = order.shipping_method.get_total_price(taxes)
+        order.shipping_price = order.shipping_method.get_total_price(
+            taxes, number_of_items=order.get_total_quantity())
         order.save()
 
     recalculate_order(order)
