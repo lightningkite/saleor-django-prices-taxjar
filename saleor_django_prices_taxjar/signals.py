@@ -1,9 +1,14 @@
+import logging
+
 from django.conf import settings
 from django.db.models.signals import post_save, pre_delete
 
 import taxjar
 
 from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus
+
+
+logger = logging.getLogger(__name__)
 
 
 client = taxjar.Client(api_key=settings.TAXJAR_ACCESS_KEY)
@@ -39,22 +44,25 @@ def update_taxjar_order_transaction(order):
 
 
 def handle_order_save(sender, instance, *args, **kwargs):
-    total_paid = sum([
-        payment.get_total_price() for payment in
-        instance.payments.filter(status__in=[
-            PaymentStatus.CONFIRMED,
-            PaymentStatus.PREAUTH,
-            PaymentStatus.REFUNDED,
-        ])],
-        ZERO_TAXED_MONEY)
-    if total_paid.gross >= instance.total.gross:
-        try:
-            create_taxjar_order_transaction(instance)
-        except ValueError:
-            # We have no address, so we can't add it
-            pass
-        except:
-            update_taxjar_order_transaction(instance)
+    try:
+        total_paid = sum([
+            payment.get_total_price() for payment in
+            instance.payments.filter(status__in=[
+                PaymentStatus.CONFIRMED,
+                PaymentStatus.PREAUTH,
+                PaymentStatus.REFUNDED,
+            ])],
+            ZERO_TAXED_MONEY)
+        if total_paid.gross >= instance.total.gross:
+            try:
+                create_taxjar_order_transaction(instance)
+            except ValueError:
+                # We have no address, so we can't add it
+                pass
+            except:
+                update_taxjar_order_transaction(instance)
+    except:
+        logger.exception('TaxJar upsert failed for order {}'.format(instance))
 
 
 def handle_payment_save(sender, instance, *args, **kwargs):
