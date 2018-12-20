@@ -1,5 +1,7 @@
 import logging
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db.models import Sum
 from django.db.models.signals import post_save, pre_delete
@@ -32,14 +34,20 @@ def create_taxjar_order_transaction(order):
     if TransactionRecord:
         records = TransactionRecord.objects.filter(
             status=PaymentStatus.REFUNDED, payment__order=order)
-        refunded_amounts = records.aggregate(
-            Sum('primary'), Sum('tax'), Sum('delivery'), Sum('discount'))
-        amount = amount - \
-            refunded_amounts['primary__sum'] - \
-            refunded_amounts['delivery__sum'] - \
-            refunded_amounts['discount__sum']
-        shipping = shipping - refunded_amounts['delivery__sum']
-        sales_tax = sales_tax - refunded_amounts['tax__sum']
+        if records.exists():
+            refunded_amounts = records.aggregate(
+                Sum('primary'), Sum('tax'), Sum('delivery'), Sum('discount'))
+            amount = amount - \
+                refunded_amounts['primary__sum'] - \
+                refunded_amounts['delivery__sum'] - \
+                refunded_amounts['discount__sum']
+            shipping = shipping - refunded_amounts['delivery__sum']
+            sales_tax = sales_tax - refunded_amounts['tax__sum']
+        else:
+            payment = order.get_last_payment()
+            amount = order.total_net.amount
+            if payment.status == PaymentStatus.CONFIRMED:
+                amount = payment.get_captured_price().amount - sales_tax
 
     taxjar_order = client.create_order({
         'transaction_id': str(order.id),
@@ -64,14 +72,20 @@ def update_taxjar_order_transaction(order):
     if TransactionRecord:
         records = TransactionRecord.objects.filter(
             status=PaymentStatus.REFUNDED, payment__order=order)
-        refunded_amounts = records.aggregate(
-            Sum('primary'), Sum('tax'), Sum('delivery'), Sum('discount'))
-        amount = amount - \
-            refunded_amounts['primary__sum'] - \
-            refunded_amounts['delivery__sum'] - \
-            refunded_amounts['discount__sum']
-        shipping = shipping - refunded_amounts['delivery__sum']
-        sales_tax = sales_tax - refunded_amounts['tax__sum']
+        if records.exists():
+            refunded_amounts = records.aggregate(
+                Sum('primary'), Sum('tax'), Sum('delivery'), Sum('discount'))
+            amount = amount - \
+                refunded_amounts['primary__sum'] - \
+                refunded_amounts['delivery__sum'] - \
+                refunded_amounts['discount__sum']
+            shipping = shipping - refunded_amounts['delivery__sum']
+            sales_tax = sales_tax - refunded_amounts['tax__sum']
+        else:
+            payment = order.get_last_payment()
+            amount = order.total_net.amount
+            if payment.status == PaymentStatus.CONFIRMED:
+                amount = payment.get_captured_price().amount - sales_tax
 
     taxjar_order = client.update_order(str(order.id), {
         'transaction_id': str(order.id),
