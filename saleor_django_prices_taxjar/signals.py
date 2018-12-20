@@ -1,9 +1,12 @@
 import logging
 
 from django.conf import settings
+from django.db.models import Sum
 from django.db.models.signals import post_save, pre_delete
 
 import taxjar
+
+from . import get_record_model
 
 from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus
 
@@ -11,13 +14,33 @@ from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus
 logger = logging.getLogger(__name__)
 
 
-client = taxjar.Client(api_key=settings.TAXJAR_ACCESS_KEY)
+client = taxjar.Client(api_key=settings.TAXJAR_ACCESS_KEY,
+                       options={'timeout': 30})
+
+
+TransactionRecord = get_record_model()
 
 
 def create_taxjar_order_transaction(order):
     address = order.shipping_address or order.billing_address
     if not address:
         raise ValueError('Order has no address, which is required!')
+
+    amount = order.total_net.amount
+    shipping = order.shipping_price_net.amount
+    sales_tax = order.total.tax.amount
+    if TransactionRecord:
+        records = TransactionRecord.objects.filter(
+            status=PaymentStatus.REFUNDED, payment__order=order)
+        refunded_amounts = records.aggregate(
+            Sum('primary'), Sum('tax'), Sum('delivery'), Sum('discount'))
+        amount = amount - \
+            refunded_amounts['primary__sum'] - \
+            refunded_amounts['delivery__sum'] - \
+            refunded_amounts['discount__sum']
+        shipping = shipping - refunded_amounts['delivery__sum']
+        sales_tax = sales_tax - refunded_amounts['tax__sum']
+
     taxjar_order = client.create_order({
         'transaction_id': str(order.id),
         'transaction_date': order.created.isoformat(),
@@ -27,19 +50,35 @@ def create_taxjar_order_transaction(order):
         'to_city': address.city,  # optional
         'to_street': address.street_address_1,  # optional
         # with shipping but without tax
-        'amount': float(order.total_net.amount),
-        'shipping': float(order.shipping_price_net.amount),  # without tax
-        'sales_tax': float(order.total.tax.amount),  # total tax for order
+        'amount': float(amount),
+        'shipping': float(shipping),  # without tax
+        'sales_tax': float(sales_tax),  # total tax for order
     })
 
 
 def update_taxjar_order_transaction(order):
+
+    amount = order.total_net.amount
+    shipping = order.shipping_price_net.amount
+    sales_tax = order.total.tax.amount
+    if TransactionRecord:
+        records = TransactionRecord.objects.filter(
+            status=PaymentStatus.REFUNDED, payment__order=order)
+        refunded_amounts = records.aggregate(
+            Sum('primary'), Sum('tax'), Sum('delivery'), Sum('discount'))
+        amount = amount - \
+            refunded_amounts['primary__sum'] - \
+            refunded_amounts['delivery__sum'] - \
+            refunded_amounts['discount__sum']
+        shipping = shipping - refunded_amounts['delivery__sum']
+        sales_tax = sales_tax - refunded_amounts['tax__sum']
+
     taxjar_order = client.update_order(str(order.id), {
         'transaction_id': str(order.id),
         # with shipping but without tax
-        'amount': float(order.total_net.amount),
-        'shipping': float(order.shipping_price_net.amount),  # without tax
-        'sales_tax': float(order.total.tax.amount),  # total tax for order
+        'amount': float(amount),
+        'shipping': float(shipping),  # without tax
+        'sales_tax': float(sales_tax),  # total tax for order
     })
 
 
