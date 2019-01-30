@@ -1,5 +1,7 @@
 # This file exists to monkey patch in taxjar in saleor code.
 
+import logging
+
 from django.conf import settings
 
 from django_countries.fields import Country
@@ -14,6 +16,9 @@ from saleor.order import utils as order_utils
 
 from .utils import (get_taxes_for_country_region, get_taxes_for_cart_full,
                     get_tax_rate_types)
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_taxes_for_cart(cart, default_taxes):
@@ -61,11 +66,14 @@ def get_total(cart, discounts=None, taxes=None):
     the order as a whole.
     """
     if cart.shipping_address and len(cart):
-        tax = get_taxes_for_cart_full(
-            cart, cart.get_shipping_price(None), discounts, None)
-        return tax(cart.get_subtotal(discounts, None) +
-                   cart.get_shipping_price(None) -
-                   cart.discount_amount)
+        try:
+            tax = get_taxes_for_cart_full(
+                cart, cart.get_shipping_price(None), discounts, None)
+            return tax(cart.get_subtotal(discounts, None) +
+                       cart.get_shipping_price(None) -
+                       cart.discount_amount)
+        except Exception as e:
+            logger.error('Failed to compute tax.', exc_info=e)
     return (cart.get_subtotal(discounts, taxes) +
             cart.get_shipping_price(taxes) -
             cart.discount_amount)
