@@ -24,12 +24,18 @@ TransactionRecord = get_record_model()
 
 
 def create_taxjar_order_transaction(order):
+    if settings.DEBUG:
+        print('create_taxjar_order_transaction')
+        return
     address = order.shipping_address or order.billing_address
     if not address:
         raise ValueError('Order has no address, which is required!')
 
     amount = order.total_net.amount
     shipping = order.shipping_price_net.amount
+    if order.voucher and order.voucher.type == VoucherType.SHIPPING:
+        # if the shipping was discounted reflect that in the record
+        shipping -= order.discount_amount
     sales_tax = order.total.tax.amount
     if TransactionRecord:
         records = TransactionRecord.objects.filter(
@@ -65,7 +71,9 @@ def create_taxjar_order_transaction(order):
 
 
 def update_taxjar_order_transaction(order):
-
+    if settings.DEBUG:
+        print('update_taxjar_order_transaction')
+        return
     amount = order.total_net.amount
     shipping = order.shipping_price_net.amount
     sales_tax = order.total.tax.amount

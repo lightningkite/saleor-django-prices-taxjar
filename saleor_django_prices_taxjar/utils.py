@@ -9,6 +9,8 @@ from django_prices_taxjar.utils import (
     get_taxes_for_order, get_tax_rates_for_region, get_tax_rate,
     get_tax_for_rate)
 
+from saleor.checkout.utils import get_voucher_for_cart
+from saleor.discount import VoucherType
 from saleor.core.utils.taxes import DEFAULT_TAX_RATE_NAME
 
 georeader = geolite2.reader()
@@ -31,6 +33,7 @@ def get_country_region_by_ip(ip_address):
 
 
 def get_taxes_for_cart_full(cart, shipping_cost, discounts, default_taxes):
+    # cart is a cart or an order
     country = cart.shipping_address.country.code
     postal_code = cart.shipping_address.postal_code
     region_code = cart.shipping_address.country_area
@@ -53,15 +56,24 @@ def get_taxes_for_cart_full(cart, shipping_cost, discounts, default_taxes):
     else:
         try:
             kwargs['amount'] = cart.get_subtotal(
-                discounts, None).gross - cart.discount_amount
+                discounts, None).net
 
         # This can potentially throw a TypeError because the function
-        # signature is different.
+        # signature is different for carts and orders.
         except TypeError:
-            kwargs['amount'] = cart.get_subtotal().gross - cart.discount_amount
+            kwargs['amount'] = cart.get_subtotal().net
+
+        try:
+            voucher = cart.voucher
+        except AttributeError:
+            voucher = get_voucher_for_cart(cart)
+        if voucher and voucher.type == VoucherType.SHIPPING:
+            shipping_cost -= cart.discount_amount
+        else:
+            kwargs['amount'] -= cart.discount_amount
 
     tax = get_taxes_for_order(
-        shipping_cost.gross, country, postal_code, region_code, city, street,
+        shipping_cost.net, country, postal_code, region_code, city, street,
         **kwargs)
     return tax
 
