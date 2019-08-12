@@ -11,7 +11,7 @@ import taxjar
 from . import get_record_model
 
 from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus
-
+from saleor.discount import VoucherType
 
 logger = logging.getLogger(__name__)
 
