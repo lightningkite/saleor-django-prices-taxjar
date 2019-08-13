@@ -35,7 +35,7 @@ def create_taxjar_order_transaction(order):
     shipping = order.shipping_price_net.amount
     if order.voucher and order.voucher.type == VoucherType.SHIPPING:
         # if the shipping was discounted reflect that in the record
-        shipping.amount -= order.discount_amount
+        shipping -= getattr(order.discount_amount, 'amount', order.discount_amount)
     sales_tax = order.total.tax.amount
     if TransactionRecord:
         records = TransactionRecord.objects.filter(
@@ -76,6 +76,9 @@ def update_taxjar_order_transaction(order):
         return
     amount = order.total_net.amount
     shipping = order.shipping_price_net.amount
+    if order.voucher and order.voucher.type == VoucherType.SHIPPING:
+        # if the shipping was discounted reflect that in the record
+        shipping -= getattr(order.discount_amount, 'amount', order.discount_amount)
     sales_tax = order.total.tax.amount
     if TransactionRecord:
         records = TransactionRecord.objects.filter(
