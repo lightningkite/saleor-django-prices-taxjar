@@ -154,7 +154,7 @@ def update_order_prices(order, discounts):
 order_utils.update_order_prices = update_order_prices
 
 
-def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None):
+def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, used_sale=False):
     """
     Add total_quantity of variant to order.
 
@@ -167,7 +167,11 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None):
     try:
         line = order.lines.get(variant=variant)
         line.quantity += quantity
-        line.save(update_fields=['quantity'])
+        if used_sale:
+            line.used_sale = True
+            line.save(update_fields=['quantity', 'used_sale'])
+        else:
+            line.save(update_fields=['quantity'])
     except order_utils.OrderLine.DoesNotExist:
         order.lines.create(
             product_name=variant.display_product(),
@@ -177,7 +181,8 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None):
             variant=variant,
             unit_price=variant.get_price(discounts, []),
             tax_rate=order_utils.get_tax_rate_by_name(
-                variant.product.tax_rate, []))
+                variant.product.tax_rate, []),
+            used_sale=used_sale)
 
     if variant.track_inventory:
         order_utils.allocate_stock(variant, quantity)
