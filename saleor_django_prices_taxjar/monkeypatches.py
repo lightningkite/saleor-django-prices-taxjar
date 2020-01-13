@@ -181,7 +181,7 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
             quantity=quantity,
             variant=variant,
             unit_price=price,
-            sale_amount=variant.get_price(None, []) - price,
+            sale_amount=variant.get_price(None, []).gross.amount - price.gross.amount,
             tax_rate=order_utils.get_tax_rate_by_name(
                 variant.product.tax_rate, []),
             used_sale=used_sale)
