@@ -173,13 +173,15 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
         else:
             line.save(update_fields=['quantity'])
     except order_utils.OrderLine.DoesNotExist:
+        price = variant.get_price(discounts, [])
         order.lines.create(
             product_name=variant.display_product(),
             product_sku=variant.sku,
             is_shipping_required=variant.is_shipping_required(),
             quantity=quantity,
             variant=variant,
-            unit_price=variant.get_price(discounts, []),
+            unit_price=price,
+            sale_amount=variant.get_price(None, []) - price,
             tax_rate=order_utils.get_tax_rate_by_name(
                 variant.product.tax_rate, []),
             used_sale=used_sale)
