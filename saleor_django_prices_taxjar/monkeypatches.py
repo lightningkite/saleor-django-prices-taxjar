@@ -169,7 +169,7 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
     """
     variant.check_quantity(quantity)
     
-    line = order.lines.filter(variant-variant, used_voucher=used_voucher).first()
+    line = order.lines.filter(variant=variant, used_voucher=used_voucher).first()
     if line:
         line = order.lines.get(variant=variant)
         line.quantity += quantity
