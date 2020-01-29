@@ -139,6 +139,11 @@ def update_order_prices(order, discounts):
     for line in order:
         if line.variant:
             line.unit_price = line.variant.get_price(discounts, taxes)
+            line.sale_amount = line.unit_price.gross.amount - line.variant.get_price(discounts, taxes).gross.amount
+            if line.sale_amount > 0:
+                line.used_sale = True
+            else:
+                line.used_sale = False
             line.tax_rate = order_utils.get_tax_rate_by_name(
                 line.variant.product.tax_rate, taxes)
             line.save()
@@ -154,7 +159,7 @@ def update_order_prices(order, discounts):
 order_utils.update_order_prices = update_order_prices
 
 
-def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, used_sale=False):
+def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, used_sale=False, voucher=None, used_voucher=False):
     """
     Add total_quantity of variant to order.
 
@@ -163,28 +168,35 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
     Overridden to prevent taxes from being applied at the line level.
     """
     variant.check_quantity(quantity)
-
-    try:
+    
+    line = order.lines.filter(variant-variant, used_voucher=used_voucher).first()
+    if line:
         line = order.lines.get(variant=variant)
         line.quantity += quantity
         if used_sale:
             line.used_sale = True
             line.save(update_fields=['quantity', 'used_sale'])
+        elif used_voucher:
+            line.used_voucher = True
+            line.save(update_fields=['quantity', 'used_voucher'])
         else:
             line.save(update_fields=['quantity'])
-    except order_utils.OrderLine.DoesNotExist:
-        price = variant.get_price(discounts, [])
+    else:
+        unit_price = variant.get_price()
+        price = variant.get_price(discounts, voucher=voucher, subtotal=False)
         order.lines.create(
             product_name=variant.display_product(),
             product_sku=variant.sku,
             is_shipping_required=variant.is_shipping_required(),
             quantity=quantity,
             variant=variant,
-            unit_price=price,
-            sale_amount=variant.get_price(None, []).gross.amount - price.gross.amount,
+            unit_price=unit_price,
+            sale_amount=unit_price.gross.amount - price.gross.amount if used_sale else 0,
+            voucher_amount = unit_price.gross.amount - price.gross.amount if used_voucher else 0,
             tax_rate=order_utils.get_tax_rate_by_name(
                 variant.product.tax_rate, []),
-            used_sale=used_sale)
+            used_sale=used_sale,
+            used_voucher=used_voucher)
 
     if variant.track_inventory:
         order_utils.allocate_stock(variant, quantity)
