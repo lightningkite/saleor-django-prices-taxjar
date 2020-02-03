@@ -69,14 +69,14 @@ def get_total(cart, discounts=None, taxes=None):
         try:
             tax = get_taxes_for_cart_full(
                 cart, cart.get_shipping_price(None), discounts, None)
-            return tax(cart.get_subtotal(discounts, None) +
-                       cart.get_shipping_price(None) -
-                       cart.discount_amount)
+            return tax(cart.get_subtotal(discounts, None)
+                       + cart.get_shipping_price(None)
+                       - cart.discount_amount)
         except Exception as e:
             logger.error('Failed to compute tax.', exc_info=e)
-    return (cart.get_subtotal(discounts, taxes) +
-            cart.get_shipping_price(taxes) -
-            cart.discount_amount)
+    return (cart.get_subtotal(discounts, taxes)
+            + cart.get_shipping_price(taxes)
+            - cart.discount_amount)
 
 
 Cart.get_total = get_total
@@ -139,7 +139,8 @@ def update_order_prices(order, discounts):
     for line in order:
         if line.variant:
             line.unit_price = line.variant.get_price(discounts, taxes)
-            line.sale_amount = line.unit_price.gross.amount - line.variant.get_price(discounts, taxes).gross.amount
+            line.sale_amount = line.unit_price.gross.amount - \
+                line.variant.get_price(discounts, taxes).gross.amount
             if line.sale_amount > 0:
                 line.used_sale = True
             else:
@@ -159,7 +160,16 @@ def update_order_prices(order, discounts):
 order_utils.update_order_prices = update_order_prices
 
 
-def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, used_sale=False, voucher=None, used_voucher=False):
+def add_variant_to_order(
+    order,
+    variant,
+    quantity,
+    discounts=None,
+    total=None,
+    taxes=None,
+    used_sale=False,
+    voucher=None,
+    used_voucher=False):
     """
     Add total_quantity of variant to order.
 
@@ -168,8 +178,9 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
     Overridden to prevent taxes from being applied at the line level.
     """
     variant.check_quantity(quantity)
-    
-    line = order.lines.filter(variant=variant, used_voucher=used_voucher).first()
+
+    line = order.lines.filter(
+        variant=variant, used_voucher=used_voucher).first()
     if line:
         line = order.lines.get(variant=variant)
         line.quantity += quantity
@@ -183,7 +194,7 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
             line.save(update_fields=['quantity'])
     else:
         unit_price = variant.get_price()
-        price = variant.get_price(discounts, voucher=voucher, subtotal=False)
+        price = variant.get_price(discounts, voucher=voucher, total=total, subtotal=False)
         order.lines.create(
             product_name=variant.display_product(),
             product_sku=variant.sku,
@@ -192,7 +203,8 @@ def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None, u
             variant=variant,
             unit_price=unit_price,
             sale_amount=unit_price.gross.amount - price.gross.amount if used_sale else 0,
-            voucher_amount = unit_price.gross.amount - price.gross.amount if used_voucher else 0,
+            voucher_amount=unit_price.gross.amount
+            - price.gross.amount if used_voucher else 0,
             tax_rate=order_utils.get_tax_rate_by_name(
                 variant.product.tax_rate, []),
             used_sale=used_sale,
