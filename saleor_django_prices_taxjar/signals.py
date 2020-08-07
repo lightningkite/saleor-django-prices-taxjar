@@ -10,7 +10,7 @@ import taxjar
 
 from . import get_record_model
 
-from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus
+from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus, OrderStatus
 from saleor.discount import VoucherType
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,8 @@ def create_taxjar_order_transaction(order):
     address = order.shipping_address or order.billing_address
     if (not address or not getattr(address, 'postal_code') or
             not getattr(address, 'country_area')):
-        raise ValueError('Order has no address, which is required!')
+        if order.status != OrderStatus.DRAFT:
+            raise ValueError('Order has no address, which is required!')
 
     amount = order.total_net.amount
     shipping = order.shipping_price_net.amount
@@ -114,7 +115,8 @@ def update_taxjar_order_transaction(order):
     address = order.shipping_address or order.billing_address
     if (not address or not getattr(address, 'postal_code') or
             not getattr(address, 'country_area')):
-        raise ValueError('Order has no address, which is required!')
+        if order.status != OrderStatus.DRAFT:
+            raise ValueError('Order has no address, which is required!')
 
     taxjar_order = client.update_order(str(order.id), {
         'transaction_id': str(order.id),
