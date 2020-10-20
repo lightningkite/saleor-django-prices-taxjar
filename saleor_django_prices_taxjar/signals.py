@@ -55,7 +55,7 @@ def create_taxjar_order_transaction(order):
         else:
             payment = order.get_last_payment()
             amount = order.total_net.amount
-            if payment.status == PaymentStatus.CONFIRMED:
+            if payment is not None and payment.status == PaymentStatus.CONFIRMED:
                 amount = payment.get_captured_price().amount - sales_tax
     else:
         payment = order.get_last_payment()
