@@ -141,33 +141,57 @@ def update_order_prices(order, discounts):
 order_utils.update_order_prices = update_order_prices
 
 
-def add_variant_to_order(order, variant, quantity, discounts=None, taxes=None):
+def add_variant_to_order(
+    order,
+    variant,
+    quantity,
+    discounts=None,
+    total=None,
+    taxes=None,
+    used_sale=False,
+    voucher=None,
+    used_voucher=False):
     """
     Add total_quantity of variant to order.
-
     Raises InsufficientStock exception if quantity could not be fulfilled.
-
     Overridden to prevent taxes from being applied at the line level.
     """
     variant.check_quantity(quantity)
 
-    try:
+    line = order.lines.filter(
+        variant=variant, used_voucher=used_voucher).first()
+    if line:
         line = order.lines.get(variant=variant)
         line.quantity += quantity
-        line.save(update_fields=['quantity'])
-    except order_utils.OrderLine.DoesNotExist:
+        if used_sale:
+            line.used_sale = True
+            line.save(update_fields=['quantity', 'used_sale'])
+        elif used_voucher:
+            line.used_voucher = True
+            line.save(update_fields=['quantity', 'used_voucher'])
+        else:
+            line.save(update_fields=['quantity'])
+    else:
+        unit_price = variant.get_price()
+        price = variant.get_price(discounts, voucher=voucher, total=total, subtotal=False)
         order.lines.create(
             product_name=variant.display_product(),
             product_sku=variant.sku,
             is_shipping_required=variant.is_shipping_required(),
             quantity=quantity,
             variant=variant,
-            unit_price=variant.get_price(discounts, []),
+            unit_price=unit_price,
+            sale_amount=unit_price.gross.amount - price.gross.amount if used_sale else 0,
+            voucher_amount=unit_price.gross.amount
+            - price.gross.amount if used_voucher else 0,
             tax_rate=order_utils.get_tax_rate_by_name(
-                variant.product.tax_rate, []))
+                variant.product.tax_rate, []),
+            used_sale=used_sale,
+            used_voucher=used_voucher)
 
     if variant.track_inventory:
         order_utils.allocate_stock(variant, quantity)
+
 
 
 order_utils.add_variant_to_order = add_variant_to_order
