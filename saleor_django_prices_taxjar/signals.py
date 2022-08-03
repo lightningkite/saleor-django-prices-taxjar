@@ -7,7 +7,9 @@ from saleor.order.models import Order, Payment, ZERO_TAXED_MONEY, PaymentStatus
 
 
 client = taxjar.Client(api_key=settings.TAXJAR_ACCESS_KEY)
-
+client.set_api_config('headers', {
+  'x-api-version': '2022-01-24'
+})
 
 def create_taxjar_order_transaction(order):
     address = order.shipping_address or order.billing_address
